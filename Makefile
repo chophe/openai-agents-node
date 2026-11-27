@@ -36,7 +36,7 @@ snapshots-create:
 
 .PHONY: old_version_tests
 old_version_tests: 
-	UV_PROJECT_ENVIRONMENT=.venv_39 uv run --python 3.9 -m pytest
+	UV_PROJECT_ENVIRONMENT=.venv_310 uv run --python 3.10 --all-extras -m pytest
 
 .PHONY: build-docs
 build-docs:

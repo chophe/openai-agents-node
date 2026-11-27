@@ -4,7 +4,7 @@ import json
 from collections.abc import Iterable
 from typing import Any, Literal, cast
 
-from openai import NOT_GIVEN, NotGiven
+from openai import Omit, omit
 from openai.types.chat import (
     ChatCompletionAssistantMessageParam,
     ChatCompletionContentPartImageParam,
@@ -18,6 +18,9 @@ from openai.types.chat import (
     ChatCompletionToolChoiceOptionParam,
     ChatCompletionToolMessageParam,
     ChatCompletionUserMessageParam,
+)
+from openai.types.chat.chat_completion_message_custom_tool_call import (
+    ChatCompletionMessageCustomToolCall,
 )
 from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 from openai.types.chat.completion_create_params import ResponseFormat
@@ -48,9 +51,9 @@ class Converter:
     @classmethod
     def convert_tool_choice(
         cls, tool_choice: Literal["auto", "required", "none"] | str | None
-    ) -> ChatCompletionToolChoiceOptionParam | NotGiven:
+    ) -> ChatCompletionToolChoiceOptionParam | Omit:
         if tool_choice is None:
-            return NOT_GIVEN
+            return omit
         elif tool_choice == "auto":
             return "auto"
         elif tool_choice == "required":
@@ -68,9 +71,9 @@ class Converter:
     @classmethod
     def convert_response_format(
         cls, final_output_schema: AgentOutputSchema | None
-    ) -> ResponseFormat | NotGiven:
+    ) -> ResponseFormat | Omit:
         if not final_output_schema or final_output_schema.is_plain_text():
-            return NOT_GIVEN
+            return omit
 
         return {
             "type": "json_schema",
@@ -108,12 +111,18 @@ class Converter:
 
         if message.tool_calls:
             for tool_call in message.tool_calls:
+                if isinstance(tool_call, ChatCompletionMessageCustomToolCall):
+                    arguments = tool_call.custom.input
+                    name = tool_call.custom.name
+                else:
+                    arguments = tool_call.function.arguments
+                    name = tool_call.function.name
                 items.append(
                     ResponseFunctionToolCall(
                         id=FAKE_RESPONSES_ID,
                         call_id=tool_call.id,
-                        arguments=tool_call.function.arguments,
-                        name=tool_call.function.name,
+                        arguments=arguments,
+                        name=name,
                         type="function_call",
                     )
                 )
@@ -417,10 +426,11 @@ class Converter:
             # 5) function call output => tool message
             elif func_output := cls.maybe_function_tool_call_output(item):
                 flush_assistant_message()
+                output = func_output["output"]
                 msg: ChatCompletionToolMessageParam = {
                     "role": "tool",
-                    "tool_call_id": func_output["call_id"],
-                    "content": func_output["output"],
+                    "tool_call_id": func_output["call_id"] or "",
+                    "content": output if isinstance(output, str) else json.dumps(output),
                 }
                 result.append(msg)
 

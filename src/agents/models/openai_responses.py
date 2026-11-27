@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Literal, overload
+from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
-from openai import NOT_GIVEN, APIStatusError, AsyncOpenAI, AsyncStream, NotGiven
+from openai import APIStatusError, AsyncOpenAI, AsyncStream, Omit, omit
 from openai.types import ChatModel
 from openai.types.responses import (
     Response,
@@ -16,6 +16,7 @@ from openai.types.responses import (
     WebSearchToolParam,
     response_create_params,
 )
+from openai.types.responses.response_includable import ResponseIncludable
 
 from .. import _debug
 from ..agent_output import AgentOutputSchema
@@ -37,11 +38,7 @@ _USER_AGENT = f"Agents/Python {__version__}"
 _HEADERS = {"User-Agent": _USER_AGENT}
 
 # From the Responses API
-IncludeLiteral = Literal[
-    "file_search_call.results",
-    "message.input_image.image_url",
-    "computer_call_output.output.image_url",
-]
+IncludeLiteral = ResponseIncludable
 
 
 class OpenAIResponsesModel(Model):
@@ -57,8 +54,8 @@ class OpenAIResponsesModel(Model):
         self.model = model
         self._client = openai_client
 
-    def _non_null_or_not_given(self, value: Any) -> Any:
-        return value if value is not None else NOT_GIVEN
+    def _non_null_or_omit(self, value: Any) -> Any:
+        return value if value is not None else omit
 
     async def get_response(
         self,
@@ -219,7 +216,7 @@ class OpenAIResponsesModel(Model):
             if model_settings.parallel_tool_calls and tools and len(tools) > 0
             else False
             if model_settings.parallel_tool_calls is False
-            else NOT_GIVEN
+            else omit
         )
 
         tool_choice = Converter.convert_tool_choice(model_settings.tool_choice)
@@ -239,28 +236,29 @@ class OpenAIResponsesModel(Model):
                 f"Previous response id: {previous_response_id}\n"
             )
 
-        return await self._client.responses.create(
-            previous_response_id=self._non_null_or_not_given(previous_response_id),
-            instructions=self._non_null_or_not_given(system_instructions),
+        ret = await self._client.responses.create(
+            previous_response_id=self._non_null_or_omit(previous_response_id),
+            instructions=self._non_null_or_omit(system_instructions),
             model=self.model,
             input=list_input,
             include=converted_tools.includes,
             tools=converted_tools.tools,
-            temperature=self._non_null_or_not_given(model_settings.temperature),
-            top_p=self._non_null_or_not_given(model_settings.top_p),
-            truncation=self._non_null_or_not_given(model_settings.truncation),
-            max_output_tokens=self._non_null_or_not_given(model_settings.max_tokens),
+            temperature=self._non_null_or_omit(model_settings.temperature),
+            top_p=self._non_null_or_omit(model_settings.top_p),
+            truncation=self._non_null_or_omit(model_settings.truncation),
+            max_output_tokens=self._non_null_or_omit(model_settings.max_tokens),
             tool_choice=tool_choice,
             parallel_tool_calls=parallel_tool_calls,
-            stream=stream,
+            stream=cast(Any, stream),
             extra_headers=_HEADERS,
             extra_query=model_settings.extra_query,
             extra_body=model_settings.extra_body,
             text=response_format,
-            store=self._non_null_or_not_given(model_settings.store),
-            reasoning=self._non_null_or_not_given(model_settings.reasoning),
-            metadata=self._non_null_or_not_given(model_settings.metadata),
+            store=self._non_null_or_omit(model_settings.store),
+            reasoning=self._non_null_or_omit(model_settings.reasoning),
+            metadata=self._non_null_or_omit(model_settings.metadata),
         )
+        return cast(Response | AsyncStream[ResponseStreamEvent], ret)
 
     def _get_client(self) -> AsyncOpenAI:
         if self._client is None:
@@ -278,9 +276,9 @@ class Converter:
     @classmethod
     def convert_tool_choice(
         cls, tool_choice: Literal["auto", "required", "none"] | str | None
-    ) -> response_create_params.ToolChoice | NotGiven:
+    ) -> response_create_params.ToolChoice | Omit:
         if tool_choice is None:
-            return NOT_GIVEN
+            return omit
         elif tool_choice == "required":
             return "required"
         elif tool_choice == "auto":
@@ -308,9 +306,9 @@ class Converter:
     @classmethod
     def get_response_format(
         cls, output_schema: AgentOutputSchema | None
-    ) -> ResponseTextConfigParam | NotGiven:
+    ) -> ResponseTextConfigParam | Omit:
         if output_schema is None or output_schema.is_plain_text():
-            return NOT_GIVEN
+            return omit
         else:
             return {
                 "format": {
@@ -360,7 +358,7 @@ class Converter:
             includes: IncludeLiteral | None = None
         elif isinstance(tool, WebSearchTool):
             ws: WebSearchToolParam = {
-                "type": "web_search_preview",
+                "type": "web_search",
                 "user_location": tool.user_location,
                 "search_context_size": tool.search_context_size,
             }
