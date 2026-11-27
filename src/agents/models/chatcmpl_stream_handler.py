@@ -53,6 +53,7 @@ class ChatCmplStreamHandler:
                 state.started = True
                 yield ResponseCreatedEvent(
                     response=response,
+                    sequence_number=0,
                     type="response.created",
                 )
 
@@ -87,6 +88,7 @@ class ChatCmplStreamHandler:
                     yield ResponseOutputItemAddedEvent(
                         item=assistant_item,
                         output_index=0,
+                        sequence_number=0,
                         type="response.output_item.added",
                     )
                     yield ResponseContentPartAddedEvent(
@@ -98,6 +100,7 @@ class ChatCmplStreamHandler:
                             type="output_text",
                             annotations=[],
                         ),
+                        sequence_number=0,
                         type="response.content_part.added",
                     )
                 # Emit the delta for this segment of content
@@ -105,7 +108,9 @@ class ChatCmplStreamHandler:
                     content_index=state.text_content_index_and_output[0],
                     delta=delta.content,
                     item_id=FAKE_RESPONSES_ID,
+                    logprobs=[],
                     output_index=0,
+                    sequence_number=0,
                     type="response.output_text.delta",
                 )
                 # Accumulate the text into the response part
@@ -131,6 +136,7 @@ class ChatCmplStreamHandler:
                     yield ResponseOutputItemAddedEvent(
                         item=assistant_item,
                         output_index=0,
+                        sequence_number=0,
                         type="response.output_item.added",
                     )
                     yield ResponseContentPartAddedEvent(
@@ -142,6 +148,7 @@ class ChatCmplStreamHandler:
                             type="output_text",
                             annotations=[],
                         ),
+                        sequence_number=0,
                         type="response.content_part.added",
                     )
                 # Emit the delta for this segment of refusal
@@ -150,6 +157,7 @@ class ChatCmplStreamHandler:
                     delta=delta.refusal,
                     item_id=FAKE_RESPONSES_ID,
                     output_index=0,
+                    sequence_number=0,
                     type="response.refusal.delta",
                 )
                 # Accumulate the refusal string in the output part
@@ -187,6 +195,7 @@ class ChatCmplStreamHandler:
                 item_id=FAKE_RESPONSES_ID,
                 output_index=0,
                 part=state.text_content_index_and_output[1],
+                sequence_number=0,
                 type="response.content_part.done",
             )
 
@@ -198,6 +207,7 @@ class ChatCmplStreamHandler:
                 item_id=FAKE_RESPONSES_ID,
                 output_index=0,
                 part=state.refusal_content_index_and_output[1],
+                sequence_number=0,
                 type="response.content_part.done",
             )
 
@@ -213,6 +223,7 @@ class ChatCmplStreamHandler:
                     type="function_call",
                 ),
                 output_index=function_call_starting_index,
+                sequence_number=0,
                 type="response.output_item.added",
             )
             # Then, yield the args
@@ -220,6 +231,7 @@ class ChatCmplStreamHandler:
                 delta=function_call.arguments,
                 item_id=FAKE_RESPONSES_ID,
                 output_index=function_call_starting_index,
+                sequence_number=0,
                 type="response.function_call_arguments.delta",
             )
             # Finally, the ResponseOutputItemDone
@@ -232,6 +244,7 @@ class ChatCmplStreamHandler:
                     type="function_call",
                 ),
                 output_index=function_call_starting_index,
+                sequence_number=0,
                 type="response.output_item.done",
             )
 
@@ -255,6 +268,7 @@ class ChatCmplStreamHandler:
             yield ResponseOutputItemDoneEvent(
                 item=assistant_msg,
                 output_index=0,
+                sequence_number=0,
                 type="response.output_item.done",
             )
 
@@ -275,6 +289,7 @@ class ChatCmplStreamHandler:
                     else 0
                 ),
                 input_tokens_details=InputTokensDetails(
+                    cache_write_tokens=0,
                     cached_tokens=usage.prompt_tokens_details.cached_tokens
                     if usage.prompt_tokens_details and usage.prompt_tokens_details.cached_tokens
                     else 0
@@ -287,4 +302,5 @@ class ChatCmplStreamHandler:
         yield ResponseCompletedEvent(
             response=final_response,
             type="response.completed",
+            sequence_number=0,
         )

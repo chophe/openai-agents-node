@@ -6,7 +6,7 @@ import time
 from collections.abc import AsyncIterator
 from typing import TYPE_CHECKING, Any, Literal, cast, overload
 
-from openai import NOT_GIVEN, AsyncOpenAI, AsyncStream
+from openai import AsyncOpenAI, AsyncStream, omit
 from openai.types import ChatModel
 from openai.types.chat import ChatCompletion, ChatCompletionChunk
 from openai.types.responses import Response
@@ -40,8 +40,8 @@ class OpenAIChatCompletionsModel(Model):
         self.model = model
         self._client = openai_client
 
-    def _non_null_or_not_given(self, value: Any) -> Any:
-        return value if value is not None else NOT_GIVEN
+    def _non_null_or_omit(self, value: Any) -> Any:
+        return value if value is not None else omit
 
     async def get_response(
         self,
@@ -211,7 +211,7 @@ class OpenAIChatCompletionsModel(Model):
             if model_settings.parallel_tool_calls and tools and len(tools) > 0
             else False
             if model_settings.parallel_tool_calls is False
-            else NOT_GIVEN
+            else omit
         )
         tool_choice = Converter.convert_tool_choice(model_settings.tool_choice)
         response_format = Converter.convert_response_format(output_schema)
@@ -242,23 +242,23 @@ class OpenAIChatCompletionsModel(Model):
         ret = await self._get_client().chat.completions.create(
             model=self.model,
             messages=converted_messages,
-            tools=converted_tools or NOT_GIVEN,
-            temperature=self._non_null_or_not_given(model_settings.temperature),
-            top_p=self._non_null_or_not_given(model_settings.top_p),
-            frequency_penalty=self._non_null_or_not_given(model_settings.frequency_penalty),
-            presence_penalty=self._non_null_or_not_given(model_settings.presence_penalty),
-            max_tokens=self._non_null_or_not_given(model_settings.max_tokens),
+            tools=converted_tools or omit,
+            temperature=self._non_null_or_omit(model_settings.temperature),
+            top_p=self._non_null_or_omit(model_settings.top_p),
+            frequency_penalty=self._non_null_or_omit(model_settings.frequency_penalty),
+            presence_penalty=self._non_null_or_omit(model_settings.presence_penalty),
+            max_tokens=self._non_null_or_omit(model_settings.max_tokens),
             tool_choice=tool_choice,
             response_format=response_format,
             parallel_tool_calls=parallel_tool_calls,
             stream=stream,
-            stream_options=self._non_null_or_not_given(stream_options),
-            store=self._non_null_or_not_given(store),
-            reasoning_effort=self._non_null_or_not_given(reasoning_effort),
+            stream_options=self._non_null_or_omit(stream_options),
+            store=self._non_null_or_omit(store),
+            reasoning_effort=self._non_null_or_omit(reasoning_effort),
             extra_headers=HEADERS,
             extra_query=model_settings.extra_query,
             extra_body=model_settings.extra_body,
-            metadata=self._non_null_or_not_given(model_settings.metadata),
+            metadata=self._non_null_or_omit(model_settings.metadata),
         )
 
         if isinstance(ret, ChatCompletion):
@@ -271,7 +271,7 @@ class OpenAIChatCompletionsModel(Model):
             object="response",
             output=[],
             tool_choice=cast(Literal["auto", "required", "none"], tool_choice)
-            if tool_choice != NOT_GIVEN
+            if tool_choice != omit
             else "auto",
             top_p=model_settings.top_p,
             temperature=model_settings.temperature,

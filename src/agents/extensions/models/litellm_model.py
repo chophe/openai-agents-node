@@ -18,7 +18,7 @@ except ImportError as _e:
         "dependency group: `pip install 'openai-agents[litellm]'`."
     ) from _e
 
-from openai import NOT_GIVEN, AsyncStream, NotGiven
+from openai import AsyncStream, Omit, omit
 from openai.types.chat import ChatCompletionChunk, ChatCompletionMessageToolCall
 from openai.types.chat.chat_completion_message import (
     Annotation,
@@ -280,8 +280,8 @@ class LitellmModel(Model):
             frequency_penalty=model_settings.frequency_penalty,
             presence_penalty=model_settings.presence_penalty,
             max_tokens=model_settings.max_tokens,
-            tool_choice=self._remove_not_given(tool_choice),
-            response_format=self._remove_not_given(response_format),
+            tool_choice=self._remove_omit(tool_choice),
+            response_format=self._remove_omit(response_format),
             parallel_tool_calls=parallel_tool_calls,
             stream=stream,
             stream_options=stream_options,
@@ -302,7 +302,7 @@ class LitellmModel(Model):
             object="response",
             output=[],
             tool_choice=cast(Literal["auto", "required", "none"], tool_choice)
-            if tool_choice != NOT_GIVEN
+            if tool_choice != omit
             else "auto",
             top_p=model_settings.top_p,
             temperature=model_settings.temperature,
@@ -312,8 +312,8 @@ class LitellmModel(Model):
         )
         return response, ret
 
-    def _remove_not_given(self, value: Any) -> Any:
-        if isinstance(value, NotGiven):
+    def _remove_omit(self, value: Any) -> Any:
+        if isinstance(value, Omit):
             return None
         return value
 
@@ -343,7 +343,7 @@ class LitellmConverter:
             role="assistant",
             annotations=cls.convert_annotations_to_openai(message),
             audio=message.get("audio", None),  # litellm deletes audio if not present
-            tool_calls=tool_calls,
+            tool_calls=cast(Any, tool_calls),
         )
 
     @classmethod
@@ -371,12 +371,16 @@ class LitellmConverter:
 
     @classmethod
     def convert_tool_call_to_openai(
-        cls, tool_call: litellm.types.utils.ChatCompletionMessageToolCall
+        cls,
+        tool_call: litellm.types.utils.ChatCompletionMessageToolCall
+        | litellm.types.utils.ChatCompletionMessageCustomToolCall,
     ) -> ChatCompletionMessageToolCall:
+        if isinstance(tool_call, litellm.types.utils.ChatCompletionMessageCustomToolCall):
+            name, arguments = tool_call.custom.name, tool_call.custom.input
+        else:
+            name, arguments = tool_call.function.name or "", tool_call.function.arguments
         return ChatCompletionMessageToolCall(
             id=tool_call.id,
             type="function",
-            function=Function(
-                name=tool_call.function.name or "", arguments=tool_call.function.arguments
-            ),
+            function=Function(name=name, arguments=arguments),
         )

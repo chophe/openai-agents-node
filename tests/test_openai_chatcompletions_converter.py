@@ -27,6 +27,9 @@ from typing import Literal, cast
 
 import pytest
 from openai.types.chat import ChatCompletionMessage, ChatCompletionMessageToolCall
+from openai.types.chat.chat_completion_message_function_tool_call_param import (
+    ChatCompletionMessageFunctionToolCallParam,
+)
 from openai.types.chat.chat_completion_message_tool_call import Function
 from openai.types.responses import (
     ResponseFunctionToolCall,
@@ -197,12 +200,12 @@ def test_items_to_messages_with_output_message_and_function_call():
 
 def test_convert_tool_choice_handles_standard_and_named_options() -> None:
     """
-    The `Converter.convert_tool_choice` method should return NOT_GIVEN
+    The `Converter.convert_tool_choice` method should return omit
     if no choice is provided, pass through values like "auto", "required",
     or "none" unchanged, and translate any other string into a function
     selection dict.
     """
-    assert Converter.convert_tool_choice(None).__class__.__name__ == "NotGiven"
+    assert Converter.convert_tool_choice(None).__class__.__name__ == "Omit"
     assert Converter.convert_tool_choice("auto") == "auto"
     assert Converter.convert_tool_choice("required") == "required"
     assert Converter.convert_tool_choice("none") == "none"
@@ -212,18 +215,18 @@ def test_convert_tool_choice_handles_standard_and_named_options() -> None:
     assert tool_choice_dict["function"]["name"] == "mytool"
 
 
-def test_convert_response_format_returns_not_given_for_plain_text_and_dict_for_schemas() -> None:
+def test_convert_response_format_returns_omit_for_plain_text_and_dict_for_schemas() -> None:
     """
-    The `Converter.convert_response_format` method should return NOT_GIVEN
+    The `Converter.convert_response_format` method should return omit
     when no output schema is provided or if the output schema indicates
     plain text. For structured output schemas, it should return a dict
     with type `json_schema` and include the generated JSON schema and
     strict flag from the provided `AgentOutputSchema`.
     """
     # when output is plain text (schema None or output_type str), do not include response_format
-    assert Converter.convert_response_format(None).__class__.__name__ == "NotGiven"
+    assert Converter.convert_response_format(None).__class__.__name__ == "Omit"
     assert (
-        Converter.convert_response_format(AgentOutputSchema(str)).__class__.__name__ == "NotGiven"
+        Converter.convert_response_format(AgentOutputSchema(str)).__class__.__name__ == "Omit"
     )
     # For e.g. integer output, we expect a response_format dict
     schema = AgentOutputSchema(int)
@@ -339,7 +342,7 @@ def test_tool_call_conversion():
     tool_calls = list(tool_msg.get("tool_calls", []))
     assert len(tool_calls) == 1
 
-    tool_call = tool_calls[0]
+    tool_call = cast(ChatCompletionMessageFunctionToolCallParam, tool_calls[0])
     assert tool_call["id"] == function_call["call_id"]
     assert tool_call["function"]["name"] == function_call["name"]
     assert tool_call["function"]["arguments"] == function_call["arguments"]

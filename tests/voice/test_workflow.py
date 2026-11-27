@@ -81,11 +81,14 @@ class FakeStreamingModel(Model):
                     type="response.output_text.delta",
                     output_index=0,
                     item_id=item.id,
+                    logprobs=[],
+                    sequence_number=0,
                 )
 
         yield ResponseCompletedEvent(
             type="response.completed",
             response=get_response_obj(output),
+            sequence_number=0,
         )
 
 
